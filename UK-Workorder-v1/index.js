@@ -1,25 +1,49 @@
-var PoolDef = require('../mssqlService');
-var pool = new PoolDef("Voyager_UK");
+var mssql = require('mssql');
+var sqlConfig = require('../sqlConfig');
+
+// Configuration object specific for this function (UK)
+const funConfig = {
+    user: sqlConfig.user,
+    password: sqlConfig.password,
+    server: sqlConfig.server,
+    port: sqlConfig.port,
+    database: "Voyager_UK",
+    options: {
+        encrypt: true
+    }   
+}
+
+const pool  = new mssql.ConnectionPool(funConfig);
 
 module.exports = (context, req) => {
-    return pool.connect(config).then( () => {
+    
+    return pool.connect().then( () => {
         const order = req.body; 
         return pool.request()
-            .input('question', sql.NChar, order.question)
-            .input('category', sql.NVarChar, order.category)
-            .input('subcategory', sql.NVarChar, order.subcategory)
-            .input('description', sql.NVarChar, order.description)
-            .input('country', sql.NVarChar, order.country)
-            .input('cost_center_number', sql.NChar, order.cost_center_number)
-            .input('user', sql.NVarChar, order.user)
-            .input('inspection_type', sql.NVarChar, order.inspection_type)
-            .input('project_id', sql.NChar, order.project_id)
-            .input('language', sql.NChar, order.language) 
-            .output('result', sql.NChar)       
+            .input('question', mssql.NChar, order.question)
+            .input('category', mssql.NVarChar, order.category)
+            .input('subcategory', mssql.NVarChar, order.subcategory)
+            .input('description', mssql.NVarChar, order.description)
+            .input('country', mssql.NVarChar, order.country)
+            .input('cost_center_number', mssql.NChar, order.cost_center_number)
+            .input('user', mssql.NVarChar, order.user)
+            .input('inspection_type', mssql.NVarChar, order.inspection_type)
+            .input('project_id', mssql.NChar, order.project_id)
+            .input('language', mssql.NChar, order.language) 
+            .output('result', mssql.NChar)       
             .execute('Akelius_Add_WOrkOder');        
         }).then((result) => {
                     context.log('procedure results: ', result);                    
-                    context.res = {result: result};
+                    context.res = {
+                       body: result
+                    };
                     pool.close();                    
-     })
+        }).catch((err) => {
+            context.log('error', err);
+            context.res = {
+                status: 400,
+                body: err
+            };
+            pool.close();
+        })
 }
