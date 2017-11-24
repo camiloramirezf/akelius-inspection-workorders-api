@@ -9,7 +9,7 @@
         "post"
       ],
       "authLevel":"anonymous",
-      "route": "work-order/UK"
+      "route": "work-order/CA"
     },
     {
       "type": "http",

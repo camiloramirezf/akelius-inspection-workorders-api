@@ -13,11 +13,9 @@ const funConfig = {
     }   
 }
 
-const pool  = new mssql.ConnectionPool(funConfig);
-
 module.exports = (context, req) => {
-    
-    return pool.connect().then( () => {
+
+    return mssql.connect(funConfig).then( (pool) => {
         const order = req.body; 
         return pool.request()
             .input('question', mssql.NChar, order.question)
@@ -36,14 +34,14 @@ module.exports = (context, req) => {
                     context.log('procedure results: ', result);                    
                     context.res = {
                        body: result
-                    };
-                    pool.close();                    
+                    };          
+                    mssql.close();          
         }).catch((err) => {
             context.log('error', err);
             context.res = {
                 status: 400,
                 body: err
-            };
-            pool.close();
+            };            
+            mssql.close();
         })
 }
