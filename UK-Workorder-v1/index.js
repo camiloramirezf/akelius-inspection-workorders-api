@@ -19,8 +19,7 @@ module.exports =  (context, req, pool = defPool ) => {
 
     // Check mandatory properties in Request Body
     var missing = checkOrder(req.body);
-    if(missing.length > 0 ) {
-        console.log("properties missing");
+    if(missing.length > 0 ) {        
         context.res = {
             status: 400,
             body: {
@@ -57,8 +56,7 @@ module.exports =  (context, req, pool = defPool ) => {
                     wonum = Number(wonum);
                     // TODO:  Validate if work oder is succesfully upload
 
-                    if(!wonum) {
-                        console.log("invalid wonum")
+                    if(!wonum) {                        
                         context.res = {
                             status: 400,
                             body: {                                
@@ -93,11 +91,8 @@ module.exports =  (context, req, pool = defPool ) => {
             if(!response) return;
 
             if(Array.isArray(response)) {
-                //var msg = response[0].output.result.trim();
+                var msg = response[0].output.result.trim();
 
-                var msg = response.map( (item) => {
-                    return item.output.result;
-                })
                 // TODO: Check for any errors in response array
                 context.res = {
                     status: 200,

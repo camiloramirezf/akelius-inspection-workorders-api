@@ -85,7 +85,7 @@ describe("User input validation", () => {
         pool.should.not.be.called();
     })
 
-    it("Should return 400 if WO is invalid", () => {
+    it("Should return 400 if WO is invalid", (done) => {
         // Mock response
         pool.execute = sinon.stub().resolves({
             output: {
@@ -96,8 +96,12 @@ describe("User input validation", () => {
         var rsp =  workOrderFunc(_ctx, validrq, pool)
         .then(() => {
             should(_ctx).have.property('res');
-            should(_ctx.res.status).equal(400);        
-        })        
+            should(_ctx.res.status).equal(400);   
+            done();     
+        }).catch((err)  => {
+            console.log("error", err);
+            done();
+        });        
     })
 
     it("Should not call Image SP if image not in request ", (done) => {
@@ -109,22 +113,25 @@ describe("User input validation", () => {
             should(_ctx.res.status).equal(200);        
             Promise.map.should.not.be.called();
             done();
+        }).catch((err)  => {
+            console.log("error", err);
+            done();
         });
     })   
 
-    it("Should call as many Image SPs as there are images in request", () => {
+    it("Should call as many Image SPs as there are images in request", (done) => {
         
         Promise.map = sinon.stub()
             .withArgs(["link1", "link2", "link3"])
             .resolves([
                 {
-                output: { result: "sucess"}
+                output: { result: "Success"}
                 },
                 {
-                output: { result: "sucess" }
+                output: { result: "Success" }
                 },
                 {
-                output: { result: "sucess" }
+                output: { result: "Success" }
                 }
         ]);
 
@@ -132,7 +139,11 @@ describe("User input validation", () => {
         .then(() => {
             should(_ctx).have.property('res');
             should(_ctx.res.status).equal(200);   
-            should(_ctx.res.body.msg).have.lengthOf(3);     
+            should(_ctx.res.body.msg).equal("Success");     
+            done();
+        }).catch((err)  => {
+            console.log("error", err);
+            done();
         });
     })
 })
