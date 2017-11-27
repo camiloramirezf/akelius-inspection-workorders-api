@@ -14,13 +14,13 @@ const funConfig = {
     }   
 }
 
-const pool = new mssql.ConnectionPool(funConfig);
-
-module.exports = (context, req) => {
+const defPool = new mssql.ConnectionPool(funConfig);
+module.exports =  (context, req, pool = defPool ) => {
 
     // Check mandatory properties in Request Body
     var missing = checkOrder(req.body);
     if(missing.length > 0 ) {
+        console.log("properties missing");
         context.res = {
             status: 400,
             body: {
@@ -29,6 +29,7 @@ module.exports = (context, req) => {
             }
         }
         context.done();
+        return;
     }
 
     const order = req.body; 
@@ -51,30 +52,31 @@ module.exports = (context, req) => {
             .execute('Akelius_Add_WOrkOder');        
 
         }).then((response) => {
-                    context.log('procedure results: ', response);                    
+                                       
                     wonum = response.output.result.trim();                                            
                     wonum = Number(wonum);
                     // TODO:  Validate if work oder is succesfully upload
 
                     if(!wonum) {
+                        console.log("invalid wonum")
                         context.res = {
-                            body: {
-                                status: 400,
-                                msg: "invalid WO Number"
+                            status: 400,
+                            body: {                                
+                                msg: "Invalid WO Number"
                             }
                         } 
-                        
-                        return ;
+                        pool.close()
+                        return;
                     }
-                    if(imgLinks.length < 1){
+                    if(imgLinks.length < 1){                        
                         // succesful response, no images
                         context.res = {
-                            body: {
+                            status: 200,
+                            body: {                                
                                 wonum: wonum,
                                 msg: response
                             }
-                         };   
-                         
+                         };  
                          return;
                     } else {
                         return Promise.map(imgLinks, function(link) {
@@ -88,15 +90,23 @@ module.exports = (context, req) => {
                     }                     
         })
         .then((response) => {
+            if(!response) return;
+
             if(Array.isArray(response)) {
-                var msg = response[0].output.result.trim();
+                //var msg = response[0].output.result.trim();
+
+                var msg = response.map( (item) => {
+                    return item.output.result;
+                })
                 // TODO: Check for any errors in response array
                 context.res = {
+                    status: 200,
                     body: {
                         wonum: wonum,
-                        msg: msg
+                        msg: msg,                        
                     }
                 }
+                return;
             } else {
                 // Procedure without image links was succesful
                 return true;
