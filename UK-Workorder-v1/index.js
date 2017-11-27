@@ -1,5 +1,6 @@
 var mssql = require('mssql');
 var sqlConfig = require('../sqlConfig');
+var Promise = require('bluebird');
 
 // Configuration object specific for this function (UK)
 const funConfig = {
@@ -13,10 +14,28 @@ const funConfig = {
     }   
 }
 
+const pool = new mssql.ConnectionPool(funConfig);
+
 module.exports = (context, req) => {
 
-    return mssql.connect(funConfig).then( (pool) => {
-        const order = req.body; 
+    // Check mandatory properties in Request Body
+    var missing = checkOrder(req.body);
+    if(missing.length > 0 ) {
+        context.res = {
+            status: 400,
+            body: {
+                error: "Please add all mandatory properties in request body",
+                missing: missing
+            }
+        }
+        context.done();
+    }
+
+    const order = req.body; 
+    const imgLinks = order.images || [];            
+    var wonum = null;
+
+    return pool.connect().then(() => {
         return pool.request()
             .input('question', mssql.NChar, order.question)
             .input('category', mssql.NVarChar, order.category)
@@ -30,18 +49,93 @@ module.exports = (context, req) => {
             .input('language', mssql.NChar, order.language) 
             .output('result', mssql.NChar)       
             .execute('Akelius_Add_WOrkOder');        
-        }).then((result) => {
-                    context.log('procedure results: ', result);                    
-                    context.res = {
-                       body: result
-                    };          
-                    mssql.close();          
-        }).catch((err) => {
+
+        }).then((response) => {
+                    context.log('procedure results: ', response);                    
+                    wonum = response.output.result.trim();                                            
+                    wonum = Number(wonum);
+                    // TODO:  Validate if work oder is succesfully upload
+
+                    if(!wonum) {
+                        context.res = {
+                            body: {
+                                status: 400,
+                                msg: "invalid WO Number"
+                            }
+                        } 
+                        
+                        return ;
+                    }
+                    if(imgLinks.length < 1){
+                        // succesful response, no images
+                        context.res = {
+                            body: {
+                                wonum: wonum,
+                                msg: response
+                            }
+                         };   
+                         
+                         return;
+                    } else {
+                        return Promise.map(imgLinks, function(link) {
+                            return pool.request()
+                                        .input('wonum', mssql.Numeric,  wonum)
+                                        .input('name', mssql.NVarChar, "testname1")
+                                        .input('link', mssql.NVarChar, link)
+                                        .output('result', mssql.NChar)
+                                        .execute('Akelius_Add_WOrkOder_Picture');        
+                        })
+                    }                     
+        })
+        .then((response) => {
+            if(Array.isArray(response)) {
+                var msg = response[0].output.result.trim();
+                // TODO: Check for any errors in response array
+                context.res = {
+                    body: {
+                        wonum: wonum,
+                        msg: msg
+                    }
+                }
+            } else {
+                // Procedure without image links was succesful
+                return true;
+            }
+            pool.close();          
+        })
+        .catch((err) => {
             context.log('error', err);
             context.res = {
                 status: 400,
                 body: err
             };            
-            mssql.close();
+            pool.close();
         })
 }
+
+var checkOrder = (obj) => {
+    
+    // Array of mandatory properties
+    var inspection = {        
+        question        : "The assigned question (mandatory)",       
+        description     : "The description about the work order (mandatory)",
+        country         : "Two letters ISO Country Code (mandatory)",
+        cost_center_number  : "Given Cost Center ID (mandatory)",
+        user            : "Reported User EMail (mandatory)",
+        inspection_type : "Type of the Inspection (mandatory)",       
+        language        : "Language of description field (mandatory)",
+        priority        : "Given priority (mandatory)"
+   };  
+ 
+   // Compare input obj with order and return array of missing properties.
+   var temp = obj;
+   var missing = [];
+
+   for(var property in inspection) {
+       if(!temp.hasOwnProperty(property)) {
+           missing.push(property);
+       }
+   }
+   
+   return missing;
+};
